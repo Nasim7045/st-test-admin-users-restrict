@@ -155,7 +155,7 @@ def main():
 
                 # Automatically list all users without a button
                 try:
-                    users = auth.list_users().users
+                    users = auth.list_users().users  # Replace with Firebase list users
                     if users:
                         st.write("Registered Users:")
                         for user in users:
@@ -168,15 +168,25 @@ def main():
                                 )
                                 last_login = f"Last login: {last_login_time}"
 
-                            # Display user information and a button to disable/enable login
+                            # Display user information
                             st.write(f'User ID: {user.uid}, Email: {user.email}, {last_login}')
 
-                            # Disable login button
-                            if st.button(f"Disable Login for {user.email}"):
-                                disable_user_login(user.email)
+                            # Check if custom_claims is defined, then check if the "disabled" claim exists
+                            is_disabled = False
+                            if user.custom_claims and "disabled" in user.custom_claims:
+                                is_disabled = user.custom_claims["disabled"]
 
-                            # Enable login button
-                            if st.button(f"Enable Login for {user.email}"):
+                            # Checkbox for disabling/enabling login
+                            disable_checkbox = st.checkbox(
+                                f"Disable Login for {user.email}",
+                                value=is_disabled,
+                                key=f"disable_{user.email}"
+                            )
+
+                            # Update login restriction based on checkbox state
+                            if disable_checkbox and not is_disabled:
+                                disable_user_login(user.email)
+                            elif not disable_checkbox and is_disabled:
                                 enable_user_login(user.email)
 
                     else:
