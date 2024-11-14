@@ -4,6 +4,7 @@ from firebase_admin import credentials, auth
 import pyrebase
 import time
 from streamlit_cookies_manager import EncryptedCookieManager
+import pandas as pd
 
 # Firebase Admin SDK setup, loading private key from a file
 cred = credentials.Certificate('/workspaces/st-test-admin-users-restrict/serviceAccountKey.json')
@@ -153,11 +154,12 @@ def main():
             if st.session_state['user_email'] in ADMIN_EMAILS:
                 st.subheader("Admin Mode")
 
-                # Automatically list all users without a button
+                # Automatically list all users with a checkbox in a box layout
                 try:
                     users = auth.list_users().users  # Replace with Firebase list users
                     if users:
                         st.write("Registered Users:")
+
                         for user in users:
                             # Convert last login timestamp to a readable format if available
                             last_login = "Never"
@@ -166,28 +168,30 @@ def main():
                                     '%Y-%m-%d %H:%M:%S',
                                     time.localtime(user.user_metadata.last_sign_in_timestamp / 1000)
                                 )
-                                last_login = f"Last login: {last_login_time}"
-
-                            # Display user information
-                            st.write(f'User ID: {user.uid}, Email: {user.email}, {last_login}')
+                                last_login = last_login_time
 
                             # Check if custom_claims is defined, then check if the "disabled" claim exists
                             is_disabled = False
                             if user.custom_claims and "disabled" in user.custom_claims:
                                 is_disabled = user.custom_claims["disabled"]
 
-                            # Checkbox for disabling/enabling login
-                            disable_checkbox = st.checkbox(
-                                f"Disable Login for {user.email}",
-                                value=is_disabled,
-                                key=f"disable_{user.email}"
-                            )
+                            # Display user information in a box layout
+                            with st.expander(f"{user.email} - Last login: {last_login}"):
+                                st.write(f"User ID: {user.uid}")
+                                st.write(f"Last Login: {last_login}")
+                                
+                                # Checkbox for disabling/enabling login
+                                disable_checkbox = st.checkbox(
+                                    "Disable Login",
+                                    value=is_disabled,
+                                    key=f"disable_{user.email}"
+                                )
 
-                            # Update login restriction based on checkbox state
-                            if disable_checkbox and not is_disabled:
-                                disable_user_login(user.email)
-                            elif not disable_checkbox and is_disabled:
-                                enable_user_login(user.email)
+                                # Update login restriction based on checkbox state
+                                if disable_checkbox and not is_disabled:
+                                    disable_user_login(user.email)
+                                elif not disable_checkbox and is_disabled:
+                                    enable_user_login(user.email)
 
                     else:
                         st.write("No users found.")
