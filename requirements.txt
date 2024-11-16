@@ -1,1 +1,5 @@
 streamlit
+firebase-admin
+pyrebase
+pandas
+streamlit-cookies-manager
