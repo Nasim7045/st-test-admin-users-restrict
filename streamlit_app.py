@@ -118,6 +118,58 @@ def enable_user_login(user_email):
         st.success(f"User {user_email} login has been re-enabled.")
     except Exception as e:
         st.error(f"Failed to enable user login: {str(e)}")
+# Apply dynamic theme
+def apply_theme(theme):
+    if theme == "Dark":
+        st.markdown("""
+            <style>
+                /* Entire page background color */
+                body {
+                    background-color: #2e2e2e;
+                    color: white;
+                }
+
+                /* Widget styles for buttons, text, and inputs */
+                .stButton button, .stTextInput > div > div > input, .stSelectbox div[data-baseweb="select"] {
+                    background-color: #4e4e4e;
+                    color: white;
+                    border: none;
+                }
+
+                .stMarkdown {
+                    color: white;
+                }
+            </style>
+            """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+            <style>
+                /* Entire page background color */
+                body {
+                    background-color: white;
+                    color: black;
+                }
+
+                /* Widget styles for buttons, text, and inputs */
+                .stButton button, .stTextInput > div > div > input, .stSelectbox div[data-baseweb="select"] {
+                    background-color: #e8e8e8;
+                    color: black;
+                    border: 1px solid #ccc;
+                }
+
+                .stMarkdown {
+                    color: black;
+                }
+
+                /* Sidebar (menu/tab) retain default appearance */
+                section[data-testid="stSidebar"] {
+                    background: inherit !important;
+                    color: inherit !important;
+                }
+            </style>
+            """, unsafe_allow_html=True)
+
+
 def main():
     st.title('Firebase Authentication with Streamlit')
 
@@ -134,34 +186,73 @@ def main():
     if "forgot_password" not in st.session_state:
         st.session_state["forgot_password"] = False
 
+    # Sidebar Logout Button
     if st.session_state["logged_in"]:
-        # Display logged-in user information
+        with st.sidebar:
+            st.markdown("---")
+            if st.button("Logout"):
+                st.session_state["logged_in"] = False
+                st.session_state["user_email"] = None
+                cookies["logged_in"] = "False"
+                cookies["user_email"] = ""
+                cookies.save()
+                st.experimental_rerun()
+
+    # Logged-in User Workflow
+    if st.session_state["logged_in"]:
         st.write(f"You are logged in as: {st.session_state['user_email']}")
 
+        # Sidebar menu
         menu_options = ["Main Menu", "Settings", "About", "Admin Mode"]
         choice = st.sidebar.selectbox("Choose an option", menu_options)
 
         if choice == "Main Menu":
             st.subheader("Welcome to the Main Menu")
             st.write("This is the main menu. Choose other options from the sidebar.")
+
         elif choice == "Settings":
+            # Settings Page
             st.subheader("Settings")
-            st.write("Settings page (to be implemented).")
+
+            # Theme Toggle
+            st.write("### Theme Settings")
+            theme_option = st.radio(
+                "Choose Theme",
+                options=["Light", "Dark"],
+                index=0 if st.session_state.get("theme", "Light") == "Light" else 1,
+            )
+            if theme_option != st.session_state.get("theme", "Light"):
+                st.session_state["theme"] = theme_option
+                st.write(f"Theme updated to {theme_option}")
+            if theme_option != st.session_state.get("theme", "Light"):
+                 st.session_state["theme"] = theme_option
+                 apply_theme(theme_option)
+                 st.write(f"Theme updated to {theme_option}")
+
+            # Language Preference
+            st.write("### Language Settings")
+            language_option = st.selectbox(
+                "Select Language",
+                options=["English", "Hindi"],  # Add more languages if needed
+                index=0 if st.session_state.get("language", "English") == "English" else 1,
+            )
+            if language_option != st.session_state.get("language", "English"):
+                st.session_state["language"] = language_option
+                st.write(f"Language updated to {language_option}")
+
         elif choice == "About":
             st.subheader("About")
             st.write("About page (to be implemented).")
+
         elif choice == "Admin Mode":
-            # Check if the logged-in user is an admin
+            # Admin Mode
             if st.session_state['user_email'] in ADMIN_EMAILS:
                 st.subheader("Admin Mode")
                 st.write("Manage registered users below. Use the checkboxes to enable or disable user logins.")
-
                 try:
                     users = auth.list_users().users
                     if users:
                         st.write("### Registered Users")
-
-                        # Table headers
                         cols = st.columns([0.1, 0.2, 0.4, 0.2, 0.2])  # Adjust column widths
                         with cols[0]:
                             st.markdown("**Sr. No.**")
@@ -173,8 +264,6 @@ def main():
                             st.markdown("**Last Login**")
                         with cols[4]:
                             st.markdown("**User ID**")
-
-                        # Display user data
                         for idx, user in enumerate(users):
                             last_login = "Never"
                             if user.user_metadata.last_sign_in_timestamp:
@@ -183,7 +272,6 @@ def main():
                                     time.localtime(user.user_metadata.last_sign_in_timestamp / 1000)
                                 )
                             is_disabled = user.custom_claims.get("disabled", False) if user.custom_claims else False
-
                             row_cols = st.columns([0.1, 0.2, 0.4, 0.2, 0.2])
                             with row_cols[0]:
                                 st.write(idx + 1)  # Sr. No.
@@ -209,35 +297,27 @@ def main():
                     st.error(f"Error retrieving users: {str(e)}")
             else:
                 st.error("Access Denied: You do not have admin privileges.")
-        if st.button("Logout"):
-            st.session_state["logged_in"] = False
-            st.session_state["user_email"] = None
-            cookies["logged_in"] = "False"
-            cookies["user_email"] = ""
-            cookies.save()
-            st.rerun()
+
     else:
-        # Registration, Login, and Forgot Password workflows
+        # Login and Registration Workflow
         if st.session_state["register"]:
             st.subheader("Register a New Account")
             email = st.text_input("Enter your email")
             password = st.text_input("Enter your password", type="password")
             confirm_password = st.text_input("Confirm your password", type="password")
-
             if st.button("Register"):
                 if password == confirm_password:
                     if register_user(email, password):
                         st.success("Registration successful! You can now log in.")
                         st.session_state["register"] = False
-                        st.rerun()
+                        st.experimental_rerun()
                     else:
                         st.error("Registration failed. Try again.")
                 else:
                     st.error("Passwords do not match. Please try again.")
-
             if st.button("Back to Login"):
                 st.session_state["register"] = False
-                st.rerun()
+                st.experimental_rerun()
 
         elif st.session_state["forgot_password"]:
             st.subheader("Forgot Password")
@@ -250,16 +330,14 @@ def main():
                         st.error("Failed to send password reset email. Please try again.")
                 else:
                     st.error("Please enter a valid email address.")
-
             if st.button("Back to Login"):
                 st.session_state["forgot_password"] = False
-                st.rerun()
+                st.experimental_rerun()
 
         else:
             st.subheader("Login")
             email = st.text_input("Enter your email")
             password = st.text_input("Enter your password", type="password")
-
             if st.button("Login"):
                 user_email = login_user(email, password)
                 if user_email:
@@ -269,17 +347,15 @@ def main():
                     cookies["user_email"] = user_email
                     cookies["last_activity"] = str(time.time())
                     cookies.save()
-                    st.rerun()
+                    st.experimental_rerun()
                 else:
                     st.error("Invalid email or password")
-
             if st.button("Sign Up"):
                 st.session_state["register"] = True
-                st.rerun()
-
+                st.experimental_rerun()
             if st.button("Forgot Password"):
                 st.session_state["forgot_password"] = True
-                st.rerun()
+                st.experimental_rerun()
 
 
 if __name__ == '__main__':
